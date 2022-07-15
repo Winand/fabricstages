@@ -69,7 +69,10 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
     ctx_result = []
     with ExitStack() as stack:
         context = st.get('context', [])
-        context += st.get('test', [])
+        st_test: "dict|list" = st.get('test', [])
+        if isinstance(st_test, dict):
+            st_test = [st_test]
+        context += st_test
         ctx_result = [stack.enter_context(ctx) for ctx in 
              (run_stage(i, c, u, is_context=True) for i in context)
              if ctx]
