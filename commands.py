@@ -69,6 +69,7 @@ class Bash:
         c.command_prefixes = []
         if prefixes or cwds:
             cmd = " && ".join([f"cd {i}" for i in cwds] + prefixes + [cmd])
+        cmd = cmd.replace("'", r"'\''")  # https://unix.stackexchange.com/questions/30903 escape '
         try:
             if user:
                 # Инициализируем окружение пользователя с помощью ~/.bash_profile
@@ -77,12 +78,11 @@ class Bash:
                 # В интерактивном режиме (-i) можно указать --rcfile ~/.bash_profile,
                 # но при этом в консоль выводится приветствие (если есть)
                 # Поэтому выполняем ~/.bash_profile вручную https://stackoverflow.com/a/29571113
-                cmd = cmd.replace("'", r"'\''")  # https://unix.stackexchange.com/questions/30903 escape '
                 cmd = f"bash -c 'source ~{user}/.bash_profile; {cmd}'"
                 result = c.sudo(cmd, user=user, password=password,
                                 hide=self.hide_, warn=self.warn_)
             else:
-                cmd = f"bash -c '{self.cmd}'"
+                cmd = f"bash -c '{cmd}'"
                 result = c.run(cmd, hide=self.hide_, warn=self.warn_)
         finally:
             c.command_prefixes = prefixes
