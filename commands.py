@@ -295,15 +295,21 @@ class FileTools:
         self.rm(f'{path}/{tar_basename(filepath)}')
 
     @contextmanager
-    def context_exists(self, filepath: str):
+    def context_exists(self, paths: "str|Iterable[str]"):
         result = {}
-        rp = realpath(self.c, filepath, self.user, self.passw)
-        result['test'] = True if rp else False
+        paths = (paths,) if isinstance(paths, str) else tuple(paths)
+        result['test'] = all(
+            realpath(self.c, fp, self.user, self.passw) for fp in paths
+        )
         yield result
-        rp = realpath(self.c, filepath, self.user, self.passw)
-        result['test'] = True if rp else False
-        if not rp:
-            log.error(f'{filepath} not found!')
+        result['test'] = all(
+            realpath(self.c, fp, self.user, self.passw) for fp in paths
+        )
+        if not result['test']:
+            if len(paths) == 1:
+                log.error(f'{paths[0]} path not found!')
+            else:
+                log.error(f'Any of {paths} paths not found!')
 
 
 class Build:
