@@ -13,7 +13,7 @@ $settings = Get-Content "settings.json" | ConvertFrom-Json  # PSCustomObject
 # Split нужен в случае, если в строке подключения указаны несколько параметров
 $conn = $ExecutionContext.InvokeCommand.ExpandString($settings.servers.($server)).Split()
 Write-Host "Подключение к серверу $conn..."
-if ($taskargs[0].StartsWith('-')) {  # Не указано имя задачи
+if ($taskargs.Count -gt 0 -and $taskargs[0].StartsWith('-')) {  # Не указано имя задачи
     # Prepend array with element: https://stackoverflow.com/a/2201722
     $taskargs = ,"main" + $taskargs  # Добавляем название задачи по умолчанию
 }
