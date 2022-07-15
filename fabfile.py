@@ -75,6 +75,10 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
              if ctx]
         # Check context results for passed tests
         tests = [ctx['test'] for ctx in ctx_result if ctx and 'test' in ctx]
+        if tests and all(tests):
+            log.info("All tests passed, stage skipped")
+            return
+
         if cmd == 'packages':
             pkg = Packages(c)
             pkg_source = st['packages']
@@ -91,16 +95,8 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
             fsh = FileTools(c, user=u)
             if is_context:
                 return fsh.context_unpack(st['file'], st['output'])
-            if tests and all(tests):
-                log.info("All tests passed, skipping")
-                return
             fsh.unpack(st['file'], st['output'])
         elif cmd == 'build':
-            if not tests:
-                raise ValueError("`build` stage requires at least one test")
-            elif all(tests):
-                log.info("Build test: already built")
-                return
             b = Build(c, st['source'], u)
             b.configure(st['options'], st.get('test_configure'))
             b.build()
@@ -110,9 +106,6 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
         elif cmd == 'run':
             if is_context:
                 return c.prefix(st['command'])
-            if tests and all(tests):
-                log.info("All tests passed, skipping")
-                return
             b = Bash(c, st['command'])
             if st.get('show', True):
                 b = b.show
