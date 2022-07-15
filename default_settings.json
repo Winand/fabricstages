@@ -1,0 +1,32 @@
+{
+    "user": "kpsuser",
+    "upload" : {
+        "root_local": "C:/local/path",
+        "root_remote": "~kpsuser/dist",
+        "devtoolset": [
+            "devtoolset-7.tar.gz"
+        ],
+        "python": [
+            "Python-3.7.13.tgz",
+            "Python-3.9.12.tgz"
+        ],
+        "packages-37": [
+            "packages",
+            ".ivy2_py37.tar.gz"
+        ],
+        "packages-39": [
+            "packages39"
+        ],
+        "code-server": [
+            "code-server_4.3.0"
+        ]
+    },
+    "servers": {
+        "dev": "root@$(&Get_VM_IP.ps1) --prompt-for-login-password",
+        "prod": "root@8.8.8.8"
+    },
+    "python-versions": [
+        "3.7.13",
+        "3.9.12"
+    ]
+}

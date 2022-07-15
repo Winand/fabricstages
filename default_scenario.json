@@ -1,0 +1,38 @@
+{
+    "user": {
+        "name": "kpsuser",
+        "home": "/home/lv_kps/kpsuser"
+    },
+    "stages": [
+        {
+            "name": "Install dependencies",
+            "cmd": "packages",
+            "packages": [
+                "zlib-devel", "openssl-devel", "sqlite-devel", "bzip2-devel",
+                "readline-devel", "libffi-devel", "gdbm-devel", "xz-devel",
+                "git", "java-1.8.0-openjdk-devel"
+            ]
+        },
+        {
+            "name": "Upload files to server",
+            "cmd": "upload",
+            "root_local": "C:/Users/Username/Documents/distrib",
+            "root_remote": "~/dist",
+            "files": [
+                "devtoolset-7.tar.gz",
+                "Python-3.7.13.tgz", "Python-3.9.12.tgz",
+                "packages-3.7", "packages-3.9",
+                ".ivy2.tar.gz",
+                "code-server_4.3.0"
+            ]
+        },
+        {
+            "name": "Install Developer Toolset 7",
+            "cmd": "packages",
+            "packages": "~/dist/devtoolset-7.tar.gz"
+        },
+        {
+            "name": ""
+        }
+    ]
+}
