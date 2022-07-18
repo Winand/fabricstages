@@ -1,13 +1,14 @@
-from contextlib import ExitStack
 import json
 import logging as log
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Optional
 
 from fabric import task
 from invoke.context import Context
 
-from commands import Bash, FileTools, Packages, User, realpath, Build
+from commands import (Bash, Build, FileTools, Packages, User, context_port,
+                      realpath)
 
 log.basicConfig(level="INFO", format='%(levelname)s: %(message)s')
 
@@ -139,6 +140,10 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
                     output = "> " + output
             # Here document https://linuxize.com/post/bash-heredoc
             Bash(c, f'cat << ~EOF~ {output}\n{st["text"]}\n~EOF~').show.run(u.name, u.password)
+        elif cmd == 'port':
+            if is_context:
+                return context_port(c, int(st['port']), int(st.get('timeout', 30)))
+            raise ValueError("`port` can be used in context only")
         else:
             raise ValueError(f"Unknown command {cmd}")
 

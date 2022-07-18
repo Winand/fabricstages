@@ -4,6 +4,7 @@ from functools import cache
 import logging as log
 # from os import PathLike
 from pathlib import Path
+import time
 from typing import Iterable, Optional
 
 from invoke.context import Context
@@ -349,6 +350,33 @@ class Build:
         with self.c.cd(self.path):
             s_alt = 'alt' if alt else ''
             return Bash(self.c, f'make {s_alt}install').show.run(self.user, self.passw)
+
+
+@contextmanager
+def context_port(c: Context, port: int, timeout: int):
+    """
+    Context command to test if port was opened.
+    Raises exception if port is already busy on __enter__.
+    """
+    cmd_port_check = f"ss -tulpn | grep LISTEN.*{port}"
+    # 0 - line selected, 1 - no lines selected, 2 - error
+    res = c.run(cmd_port_check, hide=True, warn=True).return_code == 0
+    if res:
+        log.warn(f"Port {port} is already busy!")
+    result = {'test': res}
+    yield result
+    start_time = cur_time = time.perf_counter()
+    msg_printed = False
+    while cur_time - start_time < timeout:
+        res = c.run(cmd_port_check, hide=True, warn=True).return_code == 0
+        if res:
+            break
+        elif not msg_printed:
+            log.warn(f"Waiting for port {port} to become busy for {timeout} seconds...")
+            msg_printed = True
+        time.sleep(1)
+        cur_time = time.perf_counter()
+    result['test'] = res
 
 
 def ls(c: Context, path: Path):
