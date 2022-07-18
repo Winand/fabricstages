@@ -399,3 +399,15 @@ def tar_basename(path: str) -> str:
         if p.name.lower().endswith(suffix):
             return p.name[:-len(suffix)]
     raise ValueError(f'{path} is not a tar file')
+
+
+class Firewall:
+    "Firewalld management"
+    def __init__(self, c: Context):
+        self.c = c
+
+    def allow_tcp_port(self, port: int):
+        "Allow access to TCP port in firewalld"
+        self.c.run(
+            f"firewall-cmd --permanent --zone=public --add-port={port}/tcp && firewall-cmd --reload"
+        )

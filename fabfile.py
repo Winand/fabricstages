@@ -143,7 +143,10 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
         elif cmd == 'port':
             if is_context:
                 return context_port(c, int(st['port']), int(st.get('timeout', 30)))
-            raise ValueError("`port` can be used in context only")
+            fw = Firewall(c)
+            ports = st['ports']
+            for i in [ports] if isinstance(ports, (str, int)) else ports:
+                fw.allow_tcp_port(int(i))
         else:
             raise ValueError(f"Unknown command {cmd}")
 
