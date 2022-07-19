@@ -74,7 +74,6 @@ class Bash:
         try:
             if user:
                 # Инициализируем окружение пользователя с помощью ~/.bash_profile
-                # см. https://mine.ocrv.ru/projects/gl_0006/wiki/%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D0%BD%D0%B8%D0%B5_%D1%81%D0%B5%D1%80%D0%B2%D0%B8%D1%81%D0%BE%D0%B2_systemd
                 # см. https://superuser.com/questions/671372/running-command-in-new-bash-shell-with-rcfile-and-c
                 # В интерактивном режиме (-i) можно указать --rcfile ~/.bash_profile,
                 # но при этом в консоль выводится приветствие (если есть)
@@ -355,10 +354,10 @@ class Build:
 @contextmanager
 def context_port(c: Context, port: int, timeout: int):
     """
-    Context command to test if port was opened.
+    Context command to test if a specified TCP port was opened.
     Raises exception if port is already busy on __enter__.
     """
-    cmd_port_check = f"ss -tulpn | grep LISTEN.*{port}"
+    cmd_port_check = f"ss -tln | grep :{port}"
     # 0 - line selected, 1 - no lines selected, 2 - error
     res = c.run(cmd_port_check, hide=True, warn=True).return_code == 0
     if res:
