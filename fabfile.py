@@ -114,10 +114,11 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
             if st.get('show', True):
                 b = b.show
             b.run(u.name, u.password)
-        elif cmd == 'exists':
+        elif cmd == 'path':
+            fsh = FileTools(c, user=u)
             if is_context:
-                return FileTools(c, user=u).context_exists(st['path'])
-            raise ValueError("`exists` can be used in context only")
+                return fsh.context_exists(st['path'])
+            fsh.mkdir(st['path'])
         elif cmd == 'user':
             u = User(c, st['username'])
             pref_home: Optional[str] = st.get('home')
