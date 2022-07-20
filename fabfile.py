@@ -8,8 +8,8 @@ from typing import Optional
 from fabric import task
 from invoke.context import Context
 
-from commands import (Bash, Build, FileTools, Packages, User, context_port,
-                      realpath)
+from commands import (Bash, Build, FileTools, Firewall, Packages, User,
+                      context_port, realpath)
 
 log.basicConfig(level="INFO", format='%(levelname)s: %(message)s')
 
