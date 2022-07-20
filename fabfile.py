@@ -1,3 +1,4 @@
+import getpass
 import json
 import logging as log
 from contextlib import ExitStack
@@ -156,6 +157,30 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
     if not all(tests):
         raise ValueError(f"`{cmd}` stage failed")
 
+def autorespond_lazy_input():
+    """
+    Monkey-patch invoke.watchers.Responder to allow prompt and save user passwords.
+    Password is prompted only the first time.
+
+    Usage:
+    c.sudo(cmd, user=user, password="$inputpassword:[optional key]")
+    """
+    import sys
+    from invoke.watchers import Responder
+    def submit(self, stream):
+        for _ in self.pattern_matches(stream, self.pattern, "index"):
+            if self.response.lower().startswith("$inputpassword:"):
+                response_key = self.response[len("$inputpassword:"):]
+                if response_key not in self.responses:
+                    self.responses[response_key] = getpass.getpass("") + '\n'
+                else:
+                    sys.stderr.write("(auto respond)\n")
+                self.response = self.responses[response_key]
+            else:
+                sys.stderr.write("(auto respond)\n")
+            yield self.response
+    Responder.submit = submit
+    setattr(Responder, "responses", {})
 
 @task(default=True)
 def main(c, scenario='scenario.yaml'):
@@ -167,6 +192,8 @@ def main(c, scenario='scenario.yaml'):
             sc = json.load(f)
     pref_user = sc['user']
     u = User(c, pref_user['name'])
+    c.config.sudo.password = c.config.connect_kwargs.get("password") or "$inputpassword:"
+    autorespond_lazy_input()
     for i, st in enumerate(sc['stages']):
         log.info(f"Stage {i+1}/{len(sc['stages'])} ({st.get('cmd', '')}) {st.get('name', '')}")
         run_stage(st, c, u)
