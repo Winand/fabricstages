@@ -69,6 +69,11 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
     if 'context' in st and is_context:
         raise ValueError("Нельзя использовать контекст в контексте")  # FIXME: нужно?
     ctx_result = []
+    if "user" in st:
+        # If a user is specified, use it to run the command.
+        # If an empty value is specified for username, then use the default user
+        u = User(c, st["user"] or "")
+
     with ExitStack() as stack:
         context = st.get('context', [])
         st_test: "dict|list" = st.get('test', [])
@@ -120,17 +125,17 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
             if is_context:
                 return fsh.context_exists(st['path'])
             fsh.mkdir(st['path'])
-        elif cmd == 'user':
-            u = User(c, st['username'])
+        elif cmd == 'user':  # FIXME: uses default user to run commands
+            uc = User(c, st['username'])
             pref_home: Optional[str] = st.get('home')
-            if u.exists():
-                if pref_home and u.home and pref_home != u.home:
-                    log.warning(f"User {u} already exists, but home is {u.home} "
+            if uc.exists():
+                if pref_home and uc.home and pref_home != uc.home:
+                    log.warning(f"User {uc} already exists, but home is {uc.home} "
                                 f"not {pref_home}")
                 else:
-                    log.warning(f"User {u} already exists")
+                    log.warning(f"User {uc} already exists")
             else:
-                u.create(home=pref_home)
+                uc.create(home=pref_home)
         elif cmd == 'echo':
             output = st.get('output', '')
             if output:
@@ -190,10 +195,8 @@ def main(c, scenario='scenario.yaml'):
             sc = yaml.safe_load(f)
         else:
             sc = json.load(f)
-    pref_user = sc['user']
-    u = User(c, pref_user['name'])
     c.config.sudo.password = c.config.connect_kwargs.get("password") or "$inputpassword:"
     autorespond_lazy_input()
     for i, st in enumerate(sc['stages']):
         log.info(f"Stage {i+1}/{len(sc['stages'])} ({st.get('cmd', '')}) {st.get('name', '')}")
-        run_stage(st, c, u)
+        run_stage(st, c, User(c, sc.get('user', "")))

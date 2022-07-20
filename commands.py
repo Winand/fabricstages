@@ -55,7 +55,7 @@ class Bash:
         self.warn_ = False
         return self
 
-    def run(self, user: "str|None"=None, password="") -> Result:
+    def run(self, user: "str|None"=None, password: "str|None"=None) -> Result:
         """
         Run command in bash, optionally as a specified user.
 
@@ -72,15 +72,20 @@ class Bash:
             cmd = " && ".join([f"cd {i}" for i in cwds] + prefixes + [cmd])
         cmd = cmd.replace("'", r"'\''")  # https://unix.stackexchange.com/questions/30903 escape '
         try:
-            if user:
+            if user and user != self.c.user:
                 # Инициализируем окружение пользователя с помощью ~/.bash_profile
                 # см. https://superuser.com/questions/671372/running-command-in-new-bash-shell-with-rcfile-and-c
                 # В интерактивном режиме (-i) можно указать --rcfile ~/.bash_profile,
                 # но при этом в консоль выводится приветствие (если есть)
                 # Поэтому выполняем ~/.bash_profile вручную https://stackoverflow.com/a/29571113
                 cmd = f"bash -c 'source ~{user}/.bash_profile; {cmd}'"
-                result = c.sudo(cmd, user=user, password=password,
-                                hide=self.hide_, warn=self.warn_)
+                # Echoing a password is a security risk! https://stackoverflow.com/q/233217#comment42036267_4327123
+                # e.g. result = c.run(f"echo '{password}\n' | su - {user} -c {cmd} 2>/dev/null", hide=self.hide_, warn=self.warn_)
+                kwargs = {}
+                if password:
+                    # to use default `config.sudo.password` don't pass password argument to `sudo`
+                    kwargs["password"] = password
+                result = c.sudo(cmd, user=user, **kwargs, hide=self.hide_, warn=self.warn_)
             else:
                 cmd = f"bash -c '{cmd}'"
                 result = c.run(cmd, hide=self.hide_, warn=self.warn_)
