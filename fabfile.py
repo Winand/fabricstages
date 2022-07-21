@@ -61,7 +61,8 @@ def internet(c, switch):
         raise ValueError(f"Unknown switch '{switch}'")
 
 
-def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
+def run_stage(st: dict, c: Context, u: User, env: "dict|None"=None,
+              is_context: bool = False):
     if st.get("skip"):
         log.info("Skipped " + st.get('name', ''))
         return
@@ -73,9 +74,11 @@ def run_stage(st: dict, c: Context, u: User, is_context: bool = False):
         # If a user is specified, use it to run the command.
         # If an empty value is specified for username, then use the default user
         u = User(c, st["user"] or "")
+    env = {**(env or {}), **st.get("env", {})}
 
     with ExitStack() as stack:
-        context = st.get('context', [])
+        context = [{'cmd': "run", 'command': f"{n}={v}"} for n, v in env.items()]
+        context += list(st.get('context', []))
         st_test: "dict|list" = st.get('test', [])
         if isinstance(st_test, dict):
             st_test = [st_test]
@@ -199,4 +202,4 @@ def main(c, scenario='scenario.yaml'):
     autorespond_lazy_input()
     for i, st in enumerate(sc['stages']):
         log.info(f"Stage {i+1}/{len(sc['stages'])} ({st.get('cmd', '')}) {st.get('name', '')}")
-        run_stage(st, c, User(c, sc.get('user', "")))
+        run_stage(st, c, User(c, sc.get('user', "")), sc.get('env'))
