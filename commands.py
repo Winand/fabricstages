@@ -55,7 +55,7 @@ class Bash:
         self.warn_ = False
         return self
 
-    def run(self, user: "str|None"=None, password: "str|None"=None) -> Result:
+    def run(self, user: "str|None"=None, password: "str|None"=None, enc='utf-8') -> Result:
         """
         Run command in bash, optionally as a specified user.
 
@@ -85,10 +85,10 @@ class Bash:
                 if password:
                     # to use default `config.sudo.password` don't pass password argument to `sudo`
                     kwargs["password"] = password
-                result = c.sudo(cmd, user=user, **kwargs, hide=self.hide_, warn=self.warn_)
+                result = c.sudo(cmd, user=user, **kwargs, hide=self.hide_, warn=self.warn_, encoding=enc)
             else:
                 cmd = f"bash -c '{cmd}'"
-                result = c.run(cmd, hide=self.hide_, warn=self.warn_)
+                result = c.run(cmd, hide=self.hide_, warn=self.warn_, encoding=enc)
         finally:
             c.command_prefixes = prefixes
             c.command_cwds = cwds
