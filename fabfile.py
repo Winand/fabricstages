@@ -132,6 +132,9 @@ def run_stage(st: dict, c: Context, u: User, env: "dict|None"=None,
             uc = User(c, st['username'])
             pref_home: Optional[str] = st.get('home')
             if uc.exists():
+                if pref_home:  # resolve path from preferences
+                    pref_home = Bash(c, f"echo {pref_home}") \
+                                .show.run(u.name, u.password).stdout.strip()
                 if pref_home and uc.home and pref_home != uc.home:
                     log.warning(f"User {uc} already exists, but home is {uc.home} "
                                 f"not {pref_home}")
