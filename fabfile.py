@@ -1,7 +1,8 @@
 import getpass
 import json
 import logging as log
-from contextlib import ExitStack
+from collections.abc import Callable
+from contextlib import ExitStack, AbstractContextManager
 from pathlib import Path
 from typing import Optional
 
@@ -61,6 +62,96 @@ def internet(c, switch):
         raise ValueError(f"Unknown switch '{switch}'")
 
 
+def stage_build(st: dict, c: Context, u: User, is_context: bool):
+    b = Build(c, st['source'], u)
+    b.configure(st['options'], st.get('test_configure'))
+    b.build()
+    b_install = st.get('install')
+    if b_install:
+        b.install(alt=b_install=="alt")
+
+def stage_echo(st: dict, c: Context, u: User, is_context: bool):
+    output = st.get('output', '')
+    if output:
+        fsh = FileTools(c, user=u)
+        fsh.mkdir(Path(output).parent.as_posix())
+        if st.get('append'):
+            output = ">> " + output
+        else:
+            output = "> " + output
+    # Here document https://linuxize.com/post/bash-heredoc
+    Bash(c, f'cat << ~EOF~ {output}\n{st["text"]}\n~EOF~').show.run(u.name, u.password)
+
+def stage_packages(st: dict, c: Context, u: User, is_context: bool):
+    pkg = Packages(c)
+    pkg_source = st['packages']
+    if isinstance(pkg_source, str):
+        pkg_source = realpath(c, pkg_source, user=str(u))
+        if not pkg_source:
+            raise EnvironmentError(f"Package source {st['packages']} not found")
+    pkg.install(pkg_source)
+
+def stage_path(st: dict, c: Context, u: User, is_context: bool):
+    fsh = FileTools(c, user=u)
+    if is_context:
+        return fsh.context_exists(st['path'])
+    fsh.mkdir(st['path'])
+
+def stage_port(st: dict, c: Context, u: User, is_context: bool):
+    if is_context:
+        return context_port(c, int(st['port']), int(st.get('timeout', 30)))
+    fw = Firewall(c)
+    ports = st['ports']
+    for i in [ports] if isinstance(ports, (str, int)) else ports:
+        fw.allow_tcp_port(int(i))
+
+def stage_run(st: dict, c: Context, u: User, is_context: bool):
+    if is_context:
+        return c.prefix(st['command'])
+    b = Bash(c, st['command'])
+    if st.get('show', True):
+        b = b.show
+    b.run(u.name, u.password)
+
+def stage_unpack(st: dict, c: Context, u: User, is_context: bool):
+    fsh = FileTools(c, user=u)
+    if is_context:
+        return fsh.context_unpack(st['file'], st['output'])
+    fsh.unpack(st['file'], st['output'])
+
+def stage_upload(st: dict, c: Context, u: User, is_context: bool):
+    fsh = FileTools(c, user=u)
+    fsh.mkdir(st['root_remote'])
+    fsh.upload(st['files'], st['root_local'], st['root_remote'])
+
+def stage_user(st: dict, c: Context, u: User, is_context: bool):  # FIXME: uses default user to run commands
+    uc = User(c, st['username'])
+    pref_home: Optional[str] = st.get('home')
+    if uc.exists():
+        if pref_home:  # resolve path from preferences
+            pref_home = Bash(c, f"echo {pref_home}") \
+                        .show.run(u.name, u.password).stdout.strip()
+        if pref_home and uc.home and pref_home != uc.home:
+            log.warning(f"User {uc} already exists, but home is {uc.home} "
+                        f"not {pref_home}")
+        else:
+            log.warning(f"User {uc} already exists")
+    else:
+        uc.create(home=pref_home)
+
+
+stages: "dict[str, Callable[[dict, Context, User, bool], AbstractContextManager|None]]" = {
+    'build': stage_build,
+    'echo': stage_echo,
+    'packages': stage_packages,
+    'path': stage_path,
+    'port': stage_port,
+    'run': stage_run,
+    'unpack': stage_unpack,
+    'upload': stage_upload,
+    'user': stage_user,
+}
+
 def run_stage(st: dict, c: Context, u: User, env: "dict|None"=None,
               is_context: bool = False):
     if st.get("skip"):
@@ -92,76 +183,15 @@ def run_stage(st: dict, c: Context, u: User, env: "dict|None"=None,
             log.info("All tests passed, stage skipped")
             return
 
-        if cmd == 'packages':
-            pkg = Packages(c)
-            pkg_source = st['packages']
-            if isinstance(pkg_source, str):
-                pkg_source = realpath(c, pkg_source, user=str(u))
-                if not pkg_source:
-                    raise EnvironmentError(f"Package source {st['packages']} not found")
-            pkg.install(pkg_source)
-        elif cmd == 'upload':
-            fsh = FileTools(c, user=u)
-            fsh.mkdir(st['root_remote'])
-            fsh.upload(st['files'], st['root_local'], st['root_remote'])
-        elif cmd == 'unpack':
-            fsh = FileTools(c, user=u)
-            if is_context:
-                return fsh.context_unpack(st['file'], st['output'])
-            fsh.unpack(st['file'], st['output'])
-        elif cmd == 'build':
-            b = Build(c, st['source'], u)
-            b.configure(st['options'], st.get('test_configure'))
-            b.build()
-            b_install = st.get('install')
-            if b_install:
-                b.install(alt=b_install=="alt")
-        elif cmd == 'run':
-            if is_context:
-                return c.prefix(st['command'])
-            b = Bash(c, st['command'])
-            if st.get('show', True):
-                b = b.show
-            b.run(u.name, u.password)
-        elif cmd == 'path':
-            fsh = FileTools(c, user=u)
-            if is_context:
-                return fsh.context_exists(st['path'])
-            fsh.mkdir(st['path'])
-        elif cmd == 'user':  # FIXME: uses default user to run commands
-            uc = User(c, st['username'])
-            pref_home: Optional[str] = st.get('home')
-            if uc.exists():
-                if pref_home:  # resolve path from preferences
-                    pref_home = Bash(c, f"echo {pref_home}") \
-                                .show.run(u.name, u.password).stdout.strip()
-                if pref_home and uc.home and pref_home != uc.home:
-                    log.warning(f"User {uc} already exists, but home is {uc.home} "
-                                f"not {pref_home}")
-                else:
-                    log.warning(f"User {uc} already exists")
-            else:
-                uc.create(home=pref_home)
-        elif cmd == 'echo':
-            output = st.get('output', '')
-            if output:
-                fsh = FileTools(c, user=u)
-                fsh.mkdir(Path(output).parent.as_posix())
-                if st.get('append'):
-                    output = ">> " + output
-                else:
-                    output = "> " + output
-            # Here document https://linuxize.com/post/bash-heredoc
-            Bash(c, f'cat << ~EOF~ {output}\n{st["text"]}\n~EOF~').show.run(u.name, u.password)
-        elif cmd == 'port':
-            if is_context:
-                return context_port(c, int(st['port']), int(st.get('timeout', 30)))
-            fw = Firewall(c)
-            ports = st['ports']
-            for i in [ports] if isinstance(ports, (str, int)) else ports:
-                fw.allow_tcp_port(int(i))
-        else:
+        if cmd not in stages:
             raise ValueError(f"Unknown command {cmd}")
+
+        result = stages[cmd](st, c, u, is_context)
+        if is_context:
+            if isinstance(result, AbstractContextManager):
+                # https://stackoverflow.com/a/65866302
+                return result
+            raise AttributeError("{cmd} stage doesn't return a context manager")
 
     # Check context results for passed tests
     tests = [ctx['test'] for ctx in ctx_result if ctx and 'test' in ctx]
