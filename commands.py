@@ -18,7 +18,7 @@ class Bash:
     > sh.run_as(user, password)
     > sh(command2).run()
     """
-    flag_exists = {None: "-e", "file": "-f", "dir": "-d"}
+    flag_exists = {"file": "-f", "dir": "-d"}
 
     def __init__(self, c: Context, cmd: str=""):
         self.c = c
@@ -103,13 +103,17 @@ class Bash:
         Arguments:
         `type` - тип пути: file, dir, или None (по умолчанию любой)
         """
-        exists = self.flag_exists[type]
         # return c.run(f'cd {path} && pwd', hide=True).stdout.strip()
         # realpath: https://stackoverflow.com/a/14892459
-        # Дополнительно проверяем, существует ли путь на удалённом сервере, т. к.
-        # realpath не возвращает ошибку, если последний компонент пути не существует
+        # realpath -e проверяет существование пути, иначе не возвращает ошибку,
+        # если последний компонент пути не найден
         # https://linuxize.com/post/bash-check-if-file-exists
-        return self(f'P=`realpath {path}` && [ {exists} $P ] && echo $P')
+        # `echo "echo {path}" | bash` https://stackoverflow.com/a/66181138
+        cmd = f'realpath -qe `echo "echo {path}" | bash`'
+        if type:  # проверяем тип пути: file или dir
+            exists = self.flag_exists[type.lower()]
+            cmd = f'P=$({cmd}) && [ {exists} $P ] && echo $P'
+        return self(cmd)
 
 
 class Packages:
